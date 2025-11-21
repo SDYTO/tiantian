@@ -11,7 +11,7 @@
     "position": "center",
     "size": "cover",
     "attachment": "fixed"
-    }
+  }
     {
       "id": 1,
       "title": "本地运行测试",

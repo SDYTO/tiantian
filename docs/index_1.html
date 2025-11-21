@@ -77,11 +77,620 @@
     <div class="header">
         <h1>数字森林</h1>
         <p>数字森林的世界</p>
-        <p>作者：数字森林 | 最后更新：2025-11-21 06:55:58</p>
+        <p>作者：数字森林 | 最后更新：2025-11-21 06:58:07</p>
     </div>
 
     <div class="posts">
         
+                <div class="post">
+                    <h2 class="post-title">00000000000000000000000</h2>
+                    <div class="post-meta">创建时间：2025-11-21 | 更新时间：2025-11-21</div>
+                    <div class="post-content">000admin@huawei.com
+#==============安装weakea插件===========================
+
+<JBZHSL-S7706>load-module weakea 
+Info: Load weakea_V200R021C10SPC600.mod from the startup system software to $_install_mod/weakea_V200R021C10SPC600.mod. You can run the install-module weakea_V200R021C10SPC600.mod command to install it.
+<JBZHSL-S7706>install-module weakea_V200R021C10SPC600.mod
+
+<JBZHSL-S7706>load-module weakea
+       Error: Unrecognized command found at '^' position.
+以上提示本地不存在该插件，原因是从
+V200R019C10SPC500到v200R020需要到华为官网下载WEAKEA插件【需要用到华为账户下载后FTP上传到交换机，不推荐】
+可以在系统视图直接执行 ssh server publickey rsa
+[JBZHSL-S7706] ssh server publickey rsa
+
+设备生成的指定秘钥算法配置等类似如下：
+
+#ssh server cipher aes256_ctr aes128_ctr
+#ssh server hmac sha2_256
+#ssh server key-exchange dh_group_exchange_sha1 dh_group14_sha1 dh_group1_sha1
+#ssh client cipher aes256_ctr aes128_ctr
+#ssh client hmac sha2_256
+#ssh client key-exchange dh_group_ssh client key-exchange dh_group_exchange_sha1 dh_group14_sha1 dh_group1_sha1
+#ssh server publickey rsa_sha2_512 rsa_sha2_256
+
+将上述算法全部undo掉
+
+sys
+undo ssh server cipher
+undo ssh server hmac
+undo ssh server key-exchange
+undo ssh client cipher
+undo ssh client hmac
+undo ssh client key-exchange
+undo ssh server publickey
+
+v200R020版本起有登录源接口限制 建议配置：
+ssh server-source all-interface
+qu
+
+#==============开始配置交换机===========================
+#查看当前所有配置
+dis cur
+
+#查看端口/网口状态和配置简要信息
+dis int bri
+
+#关闭终端显示调试/日志/告警信息功能
+undo terminal monitor
+
+#查看Eth-Trunk接口的状态信息
+dis cur interface Eth-Trunk
+
+#查看STP状态信息
+dis stp br
+
+#查看NTP状态信息
+dis ntp status
+dis clock
+
+#查看安装信息
+dis startup
+
+#进入系统视图，并清除console口密码
+sys
+user-interface console 0
+undo authentication-mode
+y
+
+#配置LLDP/NTP/SNMP
+qu
+lldp enable
+ntp-service ipv6 disable
+y
+ntp-service ipv6 server disable
+y
+ntp-service sync-interval 180
+ntp-service server disable
+undo ntp-service disable n 
+undo ntp-service server disable
+ntp-service unicast-server 203.107.6.88
+clock timezone BJ add 08:00:00
+
+snmp-agent
+snmp-agent community read yto_public
+snmp-agent community write yto_write
+snmp-agent sys-info version v2c v3
+snmp-agent protocol source-status all-interface
+undo snmp-agent protocol source-status ipv6 all-interface
+
+#配置VPN实例和STP
+ip vpn-instance _mgmt_
+ipv4-family
+qu
+stp region-configuration
+region-name _mgmt_
+instance 2828 vlan 2828 
+active region-configuration
+qu
+stp pathcost-standard dot1t
+stp enable
+
+#添加VLAN 3 7 2828
+vlan batch 3  7 2828
+
+#配置管理口和带外管理和说明
+int vlan 3
+description # Switch_MGMT #
+ip address 10.150.65.86 255.255.255.0
+int vlan 2828
+ip binding vpn-instance _mgmt_
+description # To-ShenZhen_MGMT_HX_JF_S5736-S #
+ip address 10.144.3.86 255.255.255.0
+qu
+ip route-static vpn-instance _mgmt_ 0.0.0.0 0.0.0.0 10.144.3.1
+ip route-static 0.0.0.0 0.0.0.0 10.150.65.1
+
+#创建链路聚合端口（其它Trunk接口配置类似，两个交换机的trunk接口相连，可以互通Vlan）
+interface Eth-Trunk 27
+description # ShenZhen_CZ_HX_JF_S7706 #
+port link-type trunk
+port trunk allow-pass vlan all
+
+#将端口聚合到Trunk 27 中--（连接核心交换机的端口）
+interface Eth-Trunk 27
+trunkport g0/0/27
+trunkport g0/0/28
+
+#配置带外管理端口
+interface g0/0/25
+description # _mgmt_ #
+port link-type access
+port default vlan 2828
+
+#配置业务口
+int range g0/0/1 to g0/0/24
+description # ShenZhen_JG_JCD01_IND #
+port link-type access
+port default vlan 7
+
+
+#修改交换机名称（每个中心名称不一样）
+[FutureMatrix] sysname ShenZhen_CZ_JR_JXD07_S5735-L
+
+#================================================
+
+#退出，保存
+[FutureMatrix-port-group]qu
+[FutureMatrix]qu
+<FutureMatrix>sa
+The current configuration will be written to flash:/vrpcfg.zip.
+Are you sure to continue?[Y/N]y
+
+#==============配置ssh===========================
+1、 首先开启ssh服务
+stelnet server enable
+ssh authentication-type default password
+
+2、创建本地RSA密钥对
+rsa local-key-pair creat
+y
+2048
+
+3、配置vty界面支持的登录协议
+user-interface vty 0 4
+authentication-mode aaa
+protocol inbound ssh
+user privilege level 15 //protocol inbound all这里选择ssh或ALL都可最好选择ssh
+
+4、进入aaa模式配置用户和用户权限以及登录方式
+aaa
+local-user admin password cipher yto.net.cn
+local-user admin privilege level 15
+local-user admin service-type ssh
+
+5、ssh添加用户
+ssh user admin
+ssh user admin authentication-type password
+ssh user admin service-type stelnet
+undo ssh user root
+
+6、解除连接限制
+ssh client first-time enable
+ssh server-source all-interface
+y
+
+#下面这条不需要加，不安装weakea补丁时需要
+#ssh server-source -i Vlanif3
+
+7、关闭密码策略
+aaa
+undo local-aaa-user password policy administrator
+
+#==============配置ssh完成，保存所有配置===========================
+[FutureMatrix-port-group]qu
+[FutureMatrix]qu
+<FutureMatrix>sa
+The current configuration will be written to flash:/vrpcfg.zip.
+Are you sure to continue?[Y/N]y
+
+8、修改密码（需要时使用）
+local-user admin password irreversible-cipher YTO_admin
+admin@huawei.com
+#==============安装weakea插件===========================
+
+<JBZHSL-S7706>load-module weakea 
+Info: Load weakea_V200R021C10SPC600.mod from the startup system software to $_install_mod/weakea_V200R021C10SPC600.mod. You can run the install-module weakea_V200R021C10SPC600.mod command to install it.
+<JBZHSL-S7706>install-module weakea_V200R021C10SPC600.mod
+
+<JBZHSL-S7706>load-module weakea
+       Error: Unrecognized command found at '^' position.
+以上提示本地不存在该插件，原因是从
+V200R019C10SPC500到v200R020需要到华为官网下载WEAKEA插件【需要用到华为账户下载后FTP上传到交换机，不推荐】
+可以在系统视图直接执行 ssh server publickey rsa
+[JBZHSL-S7706] ssh server publickey rsa
+
+设备生成的指定秘钥算法配置等类似如下：
+
+#ssh server cipher aes256_ctr aes128_ctr
+#ssh server hmac sha2_256
+#ssh server key-exchange dh_group_exchange_sha1 dh_group14_sha1 dh_group1_sha1
+#ssh client cipher aes256_ctr aes128_ctr
+#ssh client hmac sha2_256
+#ssh client key-exchange dh_group_ssh client key-exchange dh_group_exchange_sha1 dh_group14_sha1 dh_group1_sha1
+#ssh server publickey rsa_sha2_512 rsa_sha2_256
+
+将上述算法全部undo掉
+
+sys
+undo ssh server cipher
+undo ssh server hmac
+undo ssh server key-exchange
+undo ssh client cipher
+undo ssh client hmac
+undo ssh client key-exchange
+undo ssh server publickey
+
+v200R020版本起有登录源接口限制 建议配置：
+ssh server-source all-interface
+qu
+
+#==============开始配置交换机===========================
+#查看当前所有配置
+dis cur
+
+#查看端口/网口状态和配置简要信息
+dis int bri
+
+#关闭终端显示调试/日志/告警信息功能
+undo terminal monitor
+
+#查看Eth-Trunk接口的状态信息
+dis cur interface Eth-Trunk
+
+#查看STP状态信息
+dis stp br
+
+#查看NTP状态信息
+dis ntp status
+dis clock
+
+#查看安装信息
+dis startup
+
+#进入系统视图，并清除console口密码
+sys
+user-interface console 0
+undo authentication-mode
+y
+
+#配置LLDP/NTP/SNMP
+qu
+lldp enable
+ntp-service ipv6 disable
+y
+ntp-service ipv6 server disable
+y
+ntp-service sync-interval 180
+ntp-service server disable
+undo ntp-service disable n 
+undo ntp-service server disable
+ntp-service unicast-server 203.107.6.88
+clock timezone BJ add 08:00:00
+
+snmp-agent
+snmp-agent community read yto_public
+snmp-agent community write yto_write
+snmp-agent sys-info version v2c v3
+snmp-agent protocol source-status all-interface
+undo snmp-agent protocol source-status ipv6 all-interface
+
+#配置VPN实例和STP
+ip vpn-instance _mgmt_
+ipv4-family
+qu
+stp region-configuration
+region-name _mgmt_
+instance 2828 vlan 2828 
+active region-configuration
+qu
+stp pathcost-standard dot1t
+stp enable
+
+#添加VLAN 3 7 2828
+vlan batch 3  7 2828
+
+#配置管理口和带外管理和说明
+int vlan 3
+description # Switch_MGMT #
+ip address 10.150.65.86 255.255.255.0
+int vlan 2828
+ip binding vpn-instance _mgmt_
+description # To-ShenZhen_MGMT_HX_JF_S5736-S #
+ip address 10.144.3.86 255.255.255.0
+qu
+ip route-static vpn-instance _mgmt_ 0.0.0.0 0.0.0.0 10.144.3.1
+ip route-static 0.0.0.0 0.0.0.0 10.150.65.1
+
+#创建链路聚合端口（其它Trunk接口配置类似，两个交换机的trunk接口相连，可以互通Vlan）
+interface Eth-Trunk 27
+description # ShenZhen_CZ_HX_JF_S7706 #
+port link-type trunk
+port trunk allow-pass vlan all
+
+#将端口聚合到Trunk 27 中--（连接核心交换机的端口）
+interface Eth-Trunk 27
+trunkport g0/0/27
+trunkport g0/0/28
+
+#配置带外管理端口
+interface g0/0/25
+description # _mgmt_ #
+port link-type access
+port default vlan 2828
+
+#配置业务口
+int range g0/0/1 to g0/0/24
+description # ShenZhen_JG_JCD01_IND #
+port link-type access
+port default vlan 7
+
+
+#修改交换机名称（每个中心名称不一样）
+[FutureMatrix] sysname ShenZhen_CZ_JR_JXD07_S5735-L
+
+#================================================
+
+#退出，保存
+[FutureMatrix-port-group]qu
+[FutureMatrix]qu
+<FutureMatrix>sa
+The current configuration will be written to flash:/vrpcfg.zip.
+Are you sure to continue?[Y/N]y
+
+#==============配置ssh===========================
+1、 首先开启ssh服务
+stelnet server enable
+ssh authentication-type default password
+
+2、创建本地RSA密钥对
+rsa local-key-pair creat
+y
+2048
+
+3、配置vty界面支持的登录协议
+user-interface vty 0 4
+authentication-mode aaa
+protocol inbound ssh
+user privilege level 15 //protocol inbound all这里选择ssh或ALL都可最好选择ssh
+
+4、进入aaa模式配置用户和用户权限以及登录方式
+aaa
+local-user admin password cipher yto.net.cn
+local-user admin privilege level 15
+local-user admin service-type ssh
+
+5、ssh添加用户
+ssh user admin
+ssh user admin authentication-type password
+ssh user admin service-type stelnet
+undo ssh user root
+
+6、解除连接限制
+ssh client first-time enable
+ssh server-source all-interface
+y
+
+#下面这条不需要加，不安装weakea补丁时需要
+#ssh server-source -i Vlanif3
+
+7、关闭密码策略
+aaa
+undo local-aaa-user password policy administrator
+
+#==============配置ssh完成，保存所有配置===========================
+[FutureMatrix-port-group]qu
+[FutureMatrix]qu
+<FutureMatrix>sa
+The current configuration will be written to flash:/vrpcfg.zip.
+Are you sure to continue?[Y/N]y
+
+8、修改密码（需要时使用）
+local-user admin password irreversible-cipher YTO_admin
+admin@huawei.com
+#==============安装weakea插件===========================
+
+<JBZHSL-S7706>load-module weakea 
+Info: Load weakea_V200R021C10SPC600.mod from the startup system software to $_install_mod/weakea_V200R021C10SPC600.mod. You can run the install-module weakea_V200R021C10SPC600.mod command to install it.
+<JBZHSL-S7706>install-module weakea_V200R021C10SPC600.mod
+
+<JBZHSL-S7706>load-module weakea
+       Error: Unrecognized command found at '^' position.
+以上提示本地不存在该插件，原因是从
+V200R019C10SPC500到v200R020需要到华为官网下载WEAKEA插件【需要用到华为账户下载后FTP上传到交换机，不推荐】
+可以在系统视图直接执行 ssh server publickey rsa
+[JBZHSL-S7706] ssh server publickey rsa
+
+设备生成的指定秘钥算法配置等类似如下：
+
+#ssh server cipher aes256_ctr aes128_ctr
+#ssh server hmac sha2_256
+#ssh server key-exchange dh_group_exchange_sha1 dh_group14_sha1 dh_group1_sha1
+#ssh client cipher aes256_ctr aes128_ctr
+#ssh client hmac sha2_256
+#ssh client key-exchange dh_group_ssh client key-exchange dh_group_exchange_sha1 dh_group14_sha1 dh_group1_sha1
+#ssh server publickey rsa_sha2_512 rsa_sha2_256
+
+将上述算法全部undo掉
+
+sys
+undo ssh server cipher
+undo ssh server hmac
+undo ssh server key-exchange
+undo ssh client cipher
+undo ssh client hmac
+undo ssh client key-exchange
+undo ssh server publickey
+
+v200R020版本起有登录源接口限制 建议配置：
+ssh server-source all-interface
+qu
+
+#==============开始配置交换机===========================
+#查看当前所有配置
+dis cur
+
+#查看端口/网口状态和配置简要信息
+dis int bri
+
+#关闭终端显示调试/日志/告警信息功能
+undo terminal monitor
+
+#查看Eth-Trunk接口的状态信息
+dis cur interface Eth-Trunk
+
+#查看STP状态信息
+dis stp br
+
+#查看NTP状态信息
+dis ntp status
+dis clock
+
+#查看安装信息
+dis startup
+
+#进入系统视图，并清除console口密码
+sys
+user-interface console 0
+undo authentication-mode
+y
+
+#配置LLDP/NTP/SNMP
+qu
+lldp enable
+ntp-service ipv6 disable
+y
+ntp-service ipv6 server disable
+y
+ntp-service sync-interval 180
+ntp-service server disable
+undo ntp-service disable n 
+undo ntp-service server disable
+ntp-service unicast-server 203.107.6.88
+clock timezone BJ add 08:00:00
+
+snmp-agent
+snmp-agent community read yto_public
+snmp-agent community write yto_write
+snmp-agent sys-info version v2c v3
+snmp-agent protocol source-status all-interface
+undo snmp-agent protocol source-status ipv6 all-interface
+
+#配置VPN实例和STP
+ip vpn-instance _mgmt_
+ipv4-family
+qu
+stp region-configuration
+region-name _mgmt_
+instance 2828 vlan 2828 
+active region-configuration
+qu
+stp pathcost-standard dot1t
+stp enable
+
+#添加VLAN 3 7 2828
+vlan batch 3  7 2828
+
+#配置管理口和带外管理和说明
+int vlan 3
+description # Switch_MGMT #
+ip address 10.150.65.86 255.255.255.0
+int vlan 2828
+ip binding vpn-instance _mgmt_
+description # To-ShenZhen_MGMT_HX_JF_S5736-S #
+ip address 10.144.3.86 255.255.255.0
+qu
+ip route-static vpn-instance _mgmt_ 0.0.0.0 0.0.0.0 10.144.3.1
+ip route-static 0.0.0.0 0.0.0.0 10.150.65.1
+
+#创建链路聚合端口（其它Trunk接口配置类似，两个交换机的trunk接口相连，可以互通Vlan）
+interface Eth-Trunk 27
+description # ShenZhen_CZ_HX_JF_S7706 #
+port link-type trunk
+port trunk allow-pass vlan all
+
+#将端口聚合到Trunk 27 中--（连接核心交换机的端口）
+interface Eth-Trunk 27
+trunkport g0/0/27
+trunkport g0/0/28
+
+#配置带外管理端口
+interface g0/0/25
+description # _mgmt_ #
+port link-type access
+port default vlan 2828
+
+#配置业务口
+int range g0/0/1 to g0/0/24
+description # ShenZhen_JG_JCD01_IND #
+port link-type access
+port default vlan 7
+
+
+#修改交换机名称（每个中心名称不一样）
+[FutureMatrix] sysname ShenZhen_CZ_JR_JXD07_S5735-L
+
+#================================================
+
+#退出，保存
+[FutureMatrix-port-group]qu
+[FutureMatrix]qu
+<FutureMatrix>sa
+The current configuration will be written to flash:/vrpcfg.zip.
+Are you sure to continue?[Y/N]y
+
+#==============配置ssh===========================
+1、 首先开启ssh服务
+stelnet server enable
+ssh authentication-type default password
+
+2、创建本地RSA密钥对
+rsa local-key-pair creat
+y
+2048
+
+3、配置vty界面支持的登录协议
+user-interface vty 0 4
+authentication-mode aaa
+protocol inbound ssh
+user privilege level 15 //protocol inbound all这里选择ssh或ALL都可最好选择ssh
+
+4、进入aaa模式配置用户和用户权限以及登录方式
+aaa
+local-user admin password cipher yto.net.cn
+local-user admin privilege level 15
+local-user admin service-type ssh
+
+5、ssh添加用户
+ssh user admin
+ssh user admin authentication-type password
+ssh user admin service-type stelnet
+undo ssh user root
+
+6、解除连接限制
+ssh client first-time enable
+ssh server-source all-interface
+y
+
+#下面这条不需要加，不安装weakea补丁时需要
+#ssh server-source -i Vlanif3
+
+7、关闭密码策略
+aaa
+undo local-aaa-user password policy administrator
+
+#==============配置ssh完成，保存所有配置===========================
+[FutureMatrix-port-group]qu
+[FutureMatrix]qu
+<FutureMatrix>sa
+The current configuration will be written to flash:/vrpcfg.zip.
+Are you sure to continue?[Y/N]y
+
+8、修改密码（需要时使用）
+local-user admin password irreversible-cipher YTO_admin
+</div>
+                </div>
+                
                 <div class="post">
                     <h2 class="post-title">谁的人生不迷茫-2</h2>
                     <div class="post-meta">创建时间：2025-11-21 | 更新时间：2025-11-21</div>
@@ -289,220 +898,10 @@ local-user admin password irreversible-cipher YTO_admin
 </div>
                 </div>
                 
-                <div class="post">
-                    <h2 class="post-title">谁的人生不迷茫</h2>
-                    <div class="post-meta">创建时间：2025-11-21 | 更新时间：2025-11-21</div>
-                    <div class="post-content">![c040acb6aa89b79e30bddcc037c2323c_0a4746d10493937271a38ec346deb60e0be3a0a2.jpg](https://data.ruihan.xin/images/57968c13a0d54663b1deedf38fb6d4b5e409dce0.jpg)
-谁的人生不迷茫
-
-
-# 费曼学习法
-
-费曼学习法是一种高效的学习方法，由诺贝尔物理学奖得主理查德·费曼提出。其核心理念是通过“以教促学”的方式，将复杂的知识简单化，从而加深对知识的理解和记忆。以下是费曼学习法的详细使用步骤：
-
-***
-
-### **第一步：选择目标主题**
-
-1. **明确学习内容** &#x20;
-
-   选择一个你想要学习或理解的主题，比如数学公式、历史事件、编程语言等。
-2. **写下已知内容** &#x20;
-
-   在一张纸上写下你对该主题已经了解的内容。这一步可以帮助你梳理现有的知识框架。
-
-***
-
-### **第二步：模拟教学**
-
-1. **假装自己是老师** &#x20;
-
-   假设你需要向一个完全不懂这个主题的人（比如小学生）讲解这个知识点。用简单的语言和清晰的逻辑来表达。
-2. **记录讲解过程** &#x20;
-
-   把你的讲解写下来或录下来。注意避免使用专业术语或复杂的表述，尽量用通俗易懂的语言。
-3. **发现知识盲点** &#x20;
-
-   在讲解过程中，你会发现自己对某些部分理解不够深入或无法清楚地解释。这些就是你的知识盲点。
-
-***
-
-### **第三步：回顾与补充**
-
-1. **查找资料** &#x20;
-
-   针对发现的知识盲点，回到教材、参考书或网络资源中查找相关信息，填补知识漏洞。
-2. **重新组织内容** &#x20;
-
-   将新学到的知识整合到你的讲解中，确保每个部分都能被简单明了地表达。
-
-***
-
-### **第四步：简化与优化**
-
-1. **精炼语言** &#x20;
-
-   再次检查你的讲解，去掉冗余的部分，确保每个概念都简洁明了。
-2. **使用类比和比喻** &#x20;
-
-   如果某个概念难以理解，尝试用生活中的例子或比喻来帮助解释。例如，用电流类比水流，用计算机内存类比人的短期记忆。
-3. **重复模拟教学** &#x20;
-
-   再次尝试向别人（或自己）讲解，看看是否能够流畅且清晰地传递信息。
-
-***
-
-### **第五步：实践与应用**
-
-1. **实际运用知识** &#x20;
-
-   将所学的知识应用到实际问题中，比如做练习题、参与讨论或解决实际场景中的问题。
-2. **测试自己的掌握程度** &#x20;
-
-   通过考试、问答或与他人交流，检验自己是否真正掌握了该主题。
-
-***
-
-### **费曼学习法的核心原则**
-
-1. **以教促学** &#x20;
-
-   教是最好的学。当你试图教会别人时，你会更深刻地理解知识。
-2. **简单化** &#x20;
-
-   复杂的概念需要用简单的语言表达出来，才能证明你真正理解了它。
-3. **主动学习** &#x20;
-
-   费曼学习法强调主动思考和探索，而不是被动接受信息。
-4. **发现问题并解决** &#x20;
-
-   通过不断发现自己的盲点并弥补，逐步完善知识体系。
-
-***
-
-### **费曼学习法的优点**
-
-- 提高学习效率，快速掌握核心概念。
-- 增强记忆力，因为通过讲解和应用，知识会更加牢固。
-- 培养批判性思维，学会从不同角度理解问题。
-- 适合各种学科和领域，无论是科学、技术还是人文社科。
-
-***
-
-### **实际案例**
-
-假设你想学习“光合作用”：
-
-1. **第一步：选择主题** &#x20;
-
-   主题是“光合作用”。
-2. **第二步：模拟教学** &#x20;
-
-   向一个小朋友解释：“植物通过叶子吸收阳光，把二氧化碳和水变成糖和氧气。”
-3. **第三步：回顾与补充** &#x20;
-
-   发现自己无法解释“光反应”和“暗反应”的具体过程，于是查阅资料补充。
-4. **第四步：简化与优化** &#x20;
-
-   用比喻解释：“光合作用就像植物在做饭，阳光是火，二氧化碳和水是食材，最后做出糖和氧气。”
-5. **第五步：实践与应用** &#x20;
-
-   解答相关问题，比如“为什么植物需要阳光？”或“光合作用对地球生态系统的重要性是什么？”
-
-***
-
-通过以上步骤，你可以更高效地掌握任何知识，并将其内化为自己的能力。
-
-好的！以下是关于**费曼学习法**的思维导图内容，用文字形式呈现出来，方便你理解并绘制自己的思维导图。
-
-***
-
-### **中心主题：费曼学习法**
-
-- 核心理念：**以教为学，通过输出倒逼输入，简化复杂知识。**
-
-***
-
-### **分支1：费曼学习法的四个步骤**
-
-1. **选择一个概念**
-   - 明确目标：选择你想学习或掌握的知识点。
-   - 确保范围清晰：从具体的小知识点开始，避免过于宽泛。
-2. **尝试用自己的语言解释**
-   - 假装教学：像给一个完全不懂的人讲解一样，用简单的语言表达。
-   - 使用比喻和例子：让复杂的概念变得通俗易懂。
-3. **发现盲点并回顾**
-   - 找出卡点：在解释过程中发现自己不理解或模糊的地方。
-   - 回到源头：重新查阅资料、书籍或课程，填补知识漏洞。
-4. **简化并优化表达**
-   - 清晰简洁：去掉专业术语，确保任何人都能听懂。
-   - 不断迭代：重复上述过程，直到能够流畅地解释清楚。
-
-***
-
-### **分支2：费曼学习法的核心原则**
-
-1. **简单化**
-   - 将复杂问题分解成小块，逐步解决。
-   - 用最简单的语言表达深奥的概念。
-2. **主动学习**
-   - 通过“教”来加深对知识的理解。
-   - 避免被动记忆，注重理解和应用。
-3. **反馈与改进**
-   - 在教学中发现问题，并及时调整。
-   - 不断优化自己的知识体系。
-
-***
-
-### **分支3：费曼学习法的应用场景**
-
-1. **学习新知识**
-   - 快速掌握新领域的基础知识。
-   - 例如：学习编程、数学公式、科学理论等。
-2. **复习与巩固**
-   - 通过“教”的方式复习旧知识，强化记忆。
-   - 例如：准备考试时，向同学讲解难点。
-3. **解决问题**
-   - 将复杂问题拆解成简单部分，逐一攻克。
-   - 例如：分析工作中的难题，找到解决方案。
-4. **提升表达能力**
-   - 训练自己用清晰的语言传递信息。
-   - 例如：演讲、写作或日常沟通。
-
-***
-
-### **分支4：费曼学习法的优势**
-
-1. **高效学习**
-   - 提高学习效率，快速掌握核心内容。
-2. **深度理解**
-   - 强迫自己真正理解知识，而不是死记硬背。
-3. **增强记忆**
-   - 通过输出和复述，强化大脑的记忆痕迹。
-4. **培养批判性思维**
-   - 在发现盲点的过程中，锻炼逻辑思考能力。
-
-***
-
-### **分支5：注意事项**
-
-1. **避免过度简化**
-   - 简化的同时要保留关键信息，不能丢失本质。
-2. **坚持实践**
-   - 费曼学习法需要反复练习才能熟练运用。
-3. **结合其他方法**
-   - 可以与其他学习方法（如间隔重复、联想记忆）结合使用。
-
-***
-
-你可以根据以上内容，将每个分支绘制成思维导图的节点，用图形、颜色和关键词标注，形成一个直观的学习工具。希望对你有帮助！ 😊
-</div>
-                </div>
-                
     </div>
 
     <div class="pagination">
-        <a class="disabled">上一页</a><a href="index_1.html" class="active">1</a><a href="index_2.html">2</a><a href="index_3.html">3</a><a href="index_4.html">4</a><a href="index_5.html">5</a><a href="index_2.html">下一页</a>
+        <a class="disabled">上一页</a><a href="index_1.html" class="active">1</a><a href="index_2.html">2</a><a href="index_3.html">3</a><a href="index_4.html">4</a><a href="index_5.html">5</a><a href="index_6.html">6</a><a href="index_2.html">下一页</a>
     </div>
 
     <div class="footer">

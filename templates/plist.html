@@ -12,7 +12,6 @@
     <link rel="icon" href="{{ blogBase.faviconUrl }}">
     {{ blogBase.primerCSS|safe }}
     <style>
-        /* 转义大括号，避免模板解析错误 */
         .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
         .header { text-align: center; padding: 40px 0; border-bottom: 1px solid #eee; }
         .title { font-size: 2.5rem; margin-bottom: 10px; color: #2c3e50; }
@@ -26,10 +25,10 @@
         .post-title a { color: #2c3e50; text-decoration: none; }
         .post-title a:hover { color: #3498db; text-decoration: underline; }
         .post-meta { display: flex; gap: 15px; color: #7f8c8d; font-size: 0.9rem; margin-bottom: 10px; }
-        /* 修复：将 item 改为 post（与循环变量一致） */
-        .post-date { display: inline-block; padding: 2px 8px; border-radius: 4px; color: white; background-color: {{ post.dateLabelColor }}; }
+        /* 修复：CSS 中移除模板变量，只保留静态样式 */
+        .post-date { display: inline-block; padding: 2px 8px; border-radius: 4px; color: white; }
         .post-tags { display: flex; gap: 8px; flex-wrap: wrap; }
-        .post-tag { padding: 2px 8px; border-radius: 4px; background-color: #f1f5f9; color: #333; font-size: 0.8rem; }
+        .post-tag { padding: 2px 8px; border-radius: 4px; color: white; font-size: 0.8rem; }
         .post-excerpt { color: #34495e; line-height: 1.6; }
         .pagination { display: flex; justify-content: center; gap: 10px; margin: 40px 0; }
         .page-btn { padding: 8px 16px; border: 1px solid #ddd; border-radius: 4px; text-decoration: none; color: #3498db; }
@@ -95,15 +94,16 @@
                         <a href="{{ blogBase.homeUrl }}/{{ post.postUrl }}">{{ post.postTitle }}</a>
                     </h2>
                     <div class="post-meta">
-                        <!-- 修复：将 item 改为 post（与循环变量一致） -->
-                        <span class="post-date">{{ post.createdDate }}</span>
+                        <!-- 修复：在循环内部通过内联样式设置动态背景色 -->
+                        <span class="post-date" style="background-color: {{ post.dateLabelColor|default('#3498db') }};">{{ post.createdDate }}</span>
                         <div class="post-tags">
                             {% for tag in post.labels %}
-                                <span class="post-tag" style="background-color: {{ blogBase.labelColorDict.get(tag, '#f1f5f9') }}; color: white;">{{ tag }}</span>
+                                <span class="post-tag" style="background-color: {{ blogBase.labelColorDict.get(tag, '#95a5a6') }};">{{ tag }}</span>
                             {% endfor %}
                         </div>
                     </div>
-                    <div class="post-excerpt">{{ post.description }}</div>
+                    <!-- 修复：处理 description 可能未定义的情况 -->
+                    <div class="post-excerpt">{{ post.description|default('暂无摘要', true) }}</div>
                 </div>
             {% else %}
                 <div style="text-align: center; padding: 50px; color: #7f8c8d;">
@@ -114,19 +114,19 @@
 
         <!-- 分页 -->
         <div class="pagination">
-            <a href="{{ blogBase.prevUrl }}" class="page-btn" {% if blogBase.prevUrl == 'disabled' %}disabled{% endif %}>
-                {{ i18n.Previous }}
+            <a href="{{ blogBase.prevUrl|default('#', true) }}" class="page-btn" {% if not blogBase.prevUrl %}disabled{% endif %}>
+                {{ i18n.Previous|default('上一页', true) }}
             </a>
-            <a href="{{ blogBase.nextUrl }}" class="page-btn" {% if blogBase.nextUrl == 'disabled' %}disabled{% endif %}>
-                {{ i18n.Next }}
+            <a href="{{ blogBase.nextUrl|default('#', true) }}" class="page-btn" {% if not blogBase.nextUrl %}disabled{% endif %}>
+                {{ i18n.Next|default('下一页', true) }}
             </a>
         </div>
 
         <!-- 底部 -->
         <footer class="footer">
-            <p>{{ blogBase.bottomText }}</p>
+            <p>{{ blogBase.bottomText|default('© 2025 我的博客', true) }}</p>
             <p>
-                {{ i18n.run }} {{ (datetime.datetime.now(blogBase.TZ) - datetime.datetime.strptime(blogBase.startSite, '%Y-%m-%d')).days if blogBase.startSite else '0' }} {{ i18n.days }}
+                {{ i18n.run|default('运行', true) }} {{ (datetime.datetime.now(blogBase.TZ) - datetime.datetime.strptime(blogBase.startSite, '%Y-%m-%d')).days if blogBase.startSite else '0' }} {{ i18n.days|default('天', true) }}
             </p>
             <p>Powered by <a href="https://github.com/Meekdai/Gmeek" target="_blank">Gmeek</a></p>
         </footer>

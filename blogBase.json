@@ -4,6 +4,14 @@
   "author": "数字森林",
   "last_update": "2025-11-21 06:30:13",
   "posts": [
+    "background": {
+    "color": "#f0f0f0",
+    "image": "https://example.com/background.jpg",
+    "repeat": "no-repeat",
+    "position": "center",
+    "size": "cover",
+    "attachment": "fixed"
+}
     {
       "id": 1,
       "title": "本地运行测试",

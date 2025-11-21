@@ -75,10 +75,10 @@ def fetch_issue_content(github_token, repo, issue_number):
         response = requests.get(url, headers=headers)
         response.raise_for_status()
         issue = response.json()
-        # 返回 Issue 的标题和内容
+        # 返回 Issue 的标题和内容（保留原始Markdown格式）
         return {
             "title": issue["title"],
-            "content": issue["body"],
+            "content": issue["body"],  # 不再替换换行符，保留原始Markdown
             "created_at": issue["created_at"],
             "updated_at": issue["updated_at"]
         }
@@ -112,7 +112,7 @@ def generate_pagination_data(posts, current_page):
     }
 
 def generate_html(blog_base, issue_content=None):
-    """生成带分页的HTML博客页面"""
+    """生成带分页和Markdown支持的HTML博客页面"""
     # 1. 更新博客基础信息
     blog_base["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
@@ -121,7 +121,7 @@ def generate_html(blog_base, issue_content=None):
         new_post = {
             "id": len(blog_base["posts"]) + 1,
             "title": issue_content["title"],
-            "content": issue_content["content"].replace("\n", "<br>"),
+            "content": issue_content["content"],  # 保留原始Markdown内容
             "created_at": issue_content["created_at"].split("T")[0],
             "updated_at": issue_content["updated_at"].split("T")[0]
         }
@@ -135,7 +135,7 @@ def generate_html(blog_base, issue_content=None):
     posts = list(reversed(blog_base["posts"]))
     total_pages = max(1, (len(posts) + PER_PAGE - 1) // PER_PAGE)
     
-    # 3. 生成所有分页页面
+    # 3. 生成所有分页页面（包含Markdown解析支持）
     html_template = """
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -143,6 +143,10 @@ def generate_html(blog_base, issue_content=None):
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{title}</title>
+    <!-- 引入Markdown解析库和代码高亮库 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/lib/highlight.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/styles/github.min.css">
     <style>
         body {{ max-width: 1200px; margin: 0 auto; padding: 20px; font-family: Arial, sans-serif; }}
         .header {{ text-align: center; margin-bottom: 50px; }}
@@ -173,6 +177,38 @@ def generate_html(blog_base, issue_content=None):
             pointer-events: none;
             background-color: #f1f1f1;
         }}
+        /* Markdown样式增强 */
+        .post-content h1 {{ font-size: 1.8em; margin: 1.5em 0 1em; }}
+        .post-content h2 {{ font-size: 1.5em; margin: 1.2em 0 0.8em; }}
+        .post-content h3 {{ font-size: 1.2em; margin: 1em 0 0.6em; }}
+        .post-content ul, .post-content ol {{ margin: 1em 0; padding-left: 2em; }}
+        .post-content li {{ margin: 0.5em 0; }}
+        .post-content p {{ margin: 1em 0; }}
+        .post-content blockquote {{ 
+            border-left: 4px solid #ddd; 
+            padding-left: 1em; 
+            margin: 1em 0; 
+            color: #666;
+        }}
+        .post-content code {{ 
+            background: #f5f5f5; 
+            padding: 0.2em 0.4em; 
+            border-radius: 4px;
+            font-family: monospace;
+        }}
+        .post-content pre {{ 
+            background: #f5f5f5; 
+            padding: 1em; 
+            border-radius: 4px;
+            overflow-x: auto;
+            margin: 1em 0;
+        }}
+        .post-content pre code {{ 
+            padding: 0;
+            background: none;
+        }}
+        .post-content a {{ color: #2c3e50; text-decoration: underline; }}
+        .post-content img {{ max-width: 100%; margin: 1em 0; }}
     </style>
 </head>
 <body>
@@ -193,6 +229,23 @@ def generate_html(blog_base, issue_content=None):
     <div class="footer">
         <p>数字的世界 | <a href="https://ruihan.xin" target="_blank">数字森林</a></p>
     </div>
+
+    <script>
+        // 页面加载完成后解析所有Markdown内容
+        document.addEventListener('DOMContentLoaded', function() {{
+            // 解析文章内容
+            document.querySelectorAll('.post-content').forEach(function(element) {{
+                const markdown = element.textContent;
+                const html = marked.parse(markdown);
+                element.innerHTML = html;
+            }});
+            
+            // 代码高亮处理
+            document.querySelectorAll('pre code').forEach(function(block) {{
+                hljs.highlightElement(block);
+            }});
+        }});
+    </script>
 </body>
 </html>
     """
@@ -201,7 +254,7 @@ def generate_html(blog_base, issue_content=None):
     for page in range(1, total_pages + 1):
         pagination = generate_pagination_data(posts, page)
         
-        # 生成文章列表HTML
+        # 生成文章列表HTML（保留原始Markdown内容用于前端解析）
         if pagination["current_posts"]:
             posts_html = ""
             for post in pagination["current_posts"]:
@@ -286,7 +339,7 @@ def main():
         blog_base = load_blog_base()
         # 3. （可选）从Issue获取内容
         issue_content = fetch_issue_content(args.github_token, args.repo, args.issue_number)
-        # 4. 生成HTML页面（带分页）
+        # 4. 生成HTML页面（带分页和Markdown支持）
         generate_html(blog_base, issue_content)
         # 5. 备份配置文件
         backup_blog_base()

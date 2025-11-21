@@ -105,7 +105,7 @@ def generate_html(blog_base, issue_content=None):
             json.dump(blog_base, f, ensure_ascii=False, indent=2)
         print(f"✅ 新增文章：{issue_content['title']}")
     
-    # 3. 生成首页 HTML
+    # 3. 生成首页 HTML（关键修复：CSS 中的 {} 转义为 {{}}）
     html_template = """
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -114,14 +114,14 @@ def generate_html(blog_base, issue_content=None):
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{title}</title>
     <style>
-        body { max-width: 1200px; margin: 0 auto; padding: 20px; font-family: Arial, sans-serif; }
-        .header { text-align: center; margin-bottom: 50px; }
-        .post { margin: 30px 0; padding: 20px; border-bottom: 1px solid #eee; }
-        .post-title { color: #2c3e50; margin-bottom: 10px; }
-        .post-meta { color: #7f8c8d; font-size: 0.9em; margin-bottom: 15px; }
-        .post-content { line-height: 1.6; color: #34495e; }
-        .footer { text-align: center; margin-top: 50px; color: #7f8c8d; }
-        .no-posts { text-align: center; padding: 50px; color: #7f8c8d; }
+        body {{ max-width: 1200px; margin: 0 auto; padding: 20px; font-family: Arial, sans-serif; }}
+        .header {{ text-align: center; margin-bottom: 50px; }}
+        .post {{ margin: 30px 0; padding: 20px; border-bottom: 1px solid #eee; }}
+        .post-title {{ color: #2c3e50; margin-bottom: 10px; }}
+        .post-meta {{ color: #7f8c8d; font-size: 0.9em; margin-bottom: 15px; }}
+        .post-content {{ line-height: 1.6; color: #34495e; }}
+        .footer {{ text-align: center; margin-top: 50px; color: #7f8c8d; }}
+        .no-posts {{ text-align: center; padding: 50px; color: #7f8c8d; }}
     </style>
 </head>
 <body>
